@@ -1,0 +1,6 @@
+{
+  "name": "Amour - Shared Memory Lane",
+  "description": "A private, playful, and love-filled space for Ashwin and Khushi to store photos, notes, and events with an interactive timeline and calendar.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["AI-powered memory recaps", "Real-time shared editing", "Interactive memory timeline"]
+}

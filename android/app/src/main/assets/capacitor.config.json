@@ -1,0 +1,9 @@
+{
+	"appId": "com.memorylane.app",
+	"appName": "Us Forever",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https",
+		"cleartext": true
+	}
+}

@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile information for Ashwin and Khushi",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["partner"] }
+      },
+      "required": ["displayName", "email"]
+    },
+    "memory": {
+      "title": "Memory",
+      "description": "A shared memory containing photos, notes, or events",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["photo", "note", "event", "journal"] },
+        "mediaUrl": { "type": "string" },
+        "mediaType": { "type": "string" },
+        "location": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "tags": { 
+          "type": "array", 
+          "items": { "type": "string" } 
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "date", "type", "userId"]
+    },
+    "message": {
+      "title": "Message",
+      "description": "Chat message for real-time conversation",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "userId", "createdAt"]
+    },
+    "song": {
+      "title": "Song",
+      "description": "Background music tracks",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "url", "uploadedBy", "createdAt"]
+    },
+    "anniversary_message": {
+      "title": "Anniversary Message",
+      "description": "Locked 1st anniversary messages to be opened on Nov 8th",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "writerName": { "type": "string" },
+        "text": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "writerName", "text", "updatedAt"]
+    },
+    "anniversary_status": {
+      "title": "Anniversary Status",
+      "description": "Sealed status indicator for anniversary letters",
+      "type": "object",
+      "properties": {
+        "hasWritten": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hasWritten", "updatedAt"]
+    },
+    "deleted_default_song": {
+      "title": "Deleted Default Song",
+      "description": "Indicates a default song that has been hidden/deleted",
+      "type": "object",
+      "properties": {
+        "deletedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["deletedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Stores user profiles for identity verification"
+    },
+    "/memories/{memoryId}": {
+      "schema": "memory",
+      "description": "Main collection for all shared memories"
+    },
+    "/messages/{messageId}": {
+      "schema": "message",
+      "description": "Real-time chat messages"
+    },
+    "/songs/{songId}": {
+      "schema": "song",
+      "description": "Background playlist tracks"
+    },
+    "/deleted_default_songs/{songId}": {
+      "schema": "deleted_default_song",
+      "description": "Default playlist tracks that have been deleted/hidden"
+    },
+    "/anniversary_messages/{msgId}": {
+      "schema": "anniversary_message",
+      "description": "1st anniversary locked letters"
+    },
+    "/anniversary_status/{statusId}": {
+      "schema": "anniversary_status",
+      "description": "Indicates if a user has sealed their anniversary letter"
+    }
+  }
+}

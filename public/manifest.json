@@ -1,0 +1,18 @@
+{
+  "name": "Us Forever - Ashwin & Khushi",
+  "short_name": "Us Forever",
+  "description": "The beautiful joint memory diary of Ashwin and Khushi ❤️",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff1f2",
+  "theme_color": "#f43f5e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

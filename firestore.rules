@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isPartner() {
+      return isSignedIn();
+    }
+
+    // --- Collection: Public/Test ---
+    match /test/connection {
+      allow get: if true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Collection: Users ---
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isPartner());
+      allow list: if isSignedIn() && isPartner();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Collection: Memories ---
+    match /memories/{memoryId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // --- Collection: Messages ---
+    match /messages/{messageId} {
+      allow read, list: if isSignedIn() && isPartner();
+      allow create: if isSignedIn() && isPartner();
+      allow delete: if isSignedIn() && isPartner() && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Collection: Songs ---
+    match /songs/{songId} {
+      allow read, list: if isSignedIn();
+      allow write: if isSignedIn() && isPartner();
+    }
+
+    // --- Collection: Deleted Default Songs ---
+    match /deleted_default_songs/{songId} {
+      allow read, list: if isSignedIn();
+      allow write: if isSignedIn() && isPartner();
+    }
+
+    // --- Collection: Anniversary Messages ---
+    match /anniversary_messages/{msgId} {
+      allow write: if isSignedIn() && (
+        (msgId == 'ashwin' && request.auth.token.email == 'ashwinmehta1234500@gmail.com') ||
+        (msgId == 'khushi' && request.auth.token.email != 'ashwinmehta1234500@gmail.com')
+      );
+
+      allow read: if isSignedIn() && (
+        (msgId == 'ashwin' && request.auth.token.email == 'ashwinmehta1234500@gmail.com') ||
+        (msgId == 'khushi' && request.auth.token.email != 'ashwinmehta1234500@gmail.com') ||
+        request.time >= timestamp.date(2026, 11, 7)
+      );
+    }
+
+    // --- Collection: Anniversary Status ---
+    match /anniversary_status/{statusId} {
+      allow read, list: if isSignedIn();
+      allow write: if isSignedIn() && (
+        (statusId == 'ashwin' && request.auth.token.email == 'ashwinmehta1234500@gmail.com') ||
+        (statusId == 'khushi' && request.auth.token.email != 'ashwinmehta1234500@gmail.com')
+      );
+    }
+  }
+}
