@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import Calendar from 'react-calendar';
-import { db } from '../lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db, OperationType, handleFirestoreError } from '../lib/firebase';
+import { collection, query, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { format, isSameDay } from 'date-fns';
-import { Heart, Quote, Image as ImageIcon, Sparkles, X } from 'lucide-react';
+import { Heart, Quote, Image as ImageIcon, Sparkles, X, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function CalendarView() {
   const [value, setValue] = useState(new Date());
   const [memories, setMemories] = useState<any[]>([]);
   const [selectedDateMemories, setSelectedDateMemories] = useState<any[]>([]);
   const [showDetail, setShowDetail] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'memories'), (snapshot) => {
@@ -94,15 +96,27 @@ export default function CalendarView() {
                   </div>
                 )}
                 <div className="flex-1 flex flex-col justify-center">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start gap-2">
                     <h4 className="font-bold text-slate-800 text-base">{memory.title}</h4>
-                    <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                      memory.type === 'photo' ? 'bg-blue-100 text-blue-600' : 
-                      memory.type === 'journal' ? 'bg-emerald-100 text-emerald-600' :
-                      'bg-rose-100 text-rose-600'
-                    }`}>
-                      {memory.type}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                        memory.type === 'photo' ? 'bg-blue-100 text-blue-600' : 
+                        memory.type === 'journal' ? 'bg-emerald-100 text-emerald-600' :
+                        'bg-rose-100 text-rose-600'
+                      }`}>
+                        {memory.type}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTargetId(memory.id);
+                        }}
+                        className="p-1 hover:bg-rose-50 text-rose-500 rounded-full transition-colors cursor-pointer"
+                        title="Delete Memory"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-slate-500 mt-2 line-clamp-2 font-playful text-lg leading-tight italic">
                     "{memory.description}"
@@ -130,6 +144,23 @@ export default function CalendarView() {
           </div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        isOpen={!!deleteTargetId}
+        title="Delete Memory"
+        message="Are you sure you want to delete this memory? This action cannot be undone."
+        onConfirm={async () => {
+          if (deleteTargetId) {
+            try {
+              await deleteDoc(doc(db, 'memories', deleteTargetId));
+              setDeleteTargetId(null);
+            } catch (err) {
+              handleFirestoreError(err, OperationType.DELETE, `memories/${deleteTargetId}`);
+            }
+          }
+        }}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </div>
   );
 }

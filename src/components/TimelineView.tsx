@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { db, auth } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { Calendar as CalendarIcon, List, Clock, MapPin, Heart, Quote, Image as ImageIcon } from 'lucide-react';
+import { db, auth, OperationType, handleFirestoreError } from '../lib/firebase';
+import { collection, query, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { Calendar as CalendarIcon, List, Clock, MapPin, Heart, Quote, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function TimelineView() {
   const [memories, setMemories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'memories'), orderBy('date', 'desc'));
@@ -96,12 +98,22 @@ export default function TimelineView() {
                   ))}
                 </div>
               </div>
-              <div className="flex -space-x-2">
+              <div className="flex items-center gap-1.5">
                 <div className={`w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white shadow-sm ${
                   memory.userName.toLowerCase().includes('ashwin') ? 'bg-blue-400' : 'bg-pink-400'
                 }`}>
                   {memory.userName.charAt(0)}
                 </div>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTargetId(memory.id);
+                  }}
+                  className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition-colors shadow-sm cursor-pointer"
+                  title="Delete Memory"
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             </div>
 
@@ -126,6 +138,23 @@ export default function TimelineView() {
           </div>
         </motion.div>
       ))}
+
+      <ConfirmDialog
+        isOpen={!!deleteTargetId}
+        title="Delete Memory"
+        message="Are you sure you want to delete this memory? This action cannot be undone."
+        onConfirm={async () => {
+          if (deleteTargetId) {
+            try {
+              await deleteDoc(doc(db, 'memories', deleteTargetId));
+              setDeleteTargetId(null);
+            } catch (err) {
+              handleFirestoreError(err, OperationType.DELETE, `memories/${deleteTargetId}`);
+            }
+          }
+        }}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </div>
   );
 }

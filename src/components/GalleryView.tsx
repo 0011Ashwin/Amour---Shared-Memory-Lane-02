@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db, OperationType, handleFirestoreError } from '../lib/firebase';
+import { collection, query, where, onSnapshot, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Maximize2, Heart, Download } from 'lucide-react';
+import { X, Maximize2, Heart, Download, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function GalleryView() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<any | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     // Only fetch memories of type 'photo' or that have a mediaUrl
@@ -82,8 +84,21 @@ export default function GalleryView() {
                 {format(new Date(photo.date), 'MMM d, yyyy')}
               </p>
             </div>
-            <div className="absolute top-3 right-3 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-              <Maximize2 size={14} />
+            
+            <div className="absolute top-3 right-3 flex gap-2 z-20">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTargetId(photo.id);
+                }}
+                className="w-8 h-8 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center shadow-md transition-transform hover:scale-110 cursor-pointer"
+                title="Delete Memory"
+              >
+                <Trash2 size={12} />
+              </button>
+              <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <Maximize2 size={14} />
+              </div>
             </div>
           </motion.div>
         ))}
@@ -127,7 +142,7 @@ export default function GalleryView() {
                   </p>
                 )}
                 
-                <div className="pt-4 flex justify-center gap-4">
+                <div className="pt-4 flex flex-wrap justify-center gap-3">
                   <a 
                     href={selectedPhoto.mediaUrl} 
                     target="_blank" 
@@ -136,6 +151,14 @@ export default function GalleryView() {
                   >
                     <Download size={14} /> Download Original
                   </a>
+                  <button
+                    onClick={() => {
+                      setDeleteTargetId(selectedPhoto.id);
+                    }}
+                    className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-full text-xs font-bold transition-all shadow-md cursor-pointer"
+                  >
+                    <Trash2 size={14} /> Delete Memory
+                  </button>
                   <div className="flex items-center gap-2 bg-rose-500/20 text-rose-400 px-4 py-2 rounded-full text-xs font-bold">
                     <Heart size={14} className="fill-rose-400" /> Forever
                   </div>
@@ -145,6 +168,26 @@ export default function GalleryView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        isOpen={!!deleteTargetId}
+        title="Delete Memory"
+        message="Are you sure you want to delete this memory? This action cannot be undone."
+        onConfirm={async () => {
+          if (deleteTargetId) {
+            try {
+              await deleteDoc(doc(db, 'memories', deleteTargetId));
+              setDeleteTargetId(null);
+              if (selectedPhoto && selectedPhoto.id === deleteTargetId) {
+                setSelectedPhoto(null);
+              }
+            } catch (err) {
+              handleFirestoreError(err, OperationType.DELETE, `memories/${deleteTargetId}`);
+            }
+          }
+        }}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </div>
   );
 }

@@ -9,7 +9,6 @@ import GalleryView from './components/GalleryView';
 import ChatView from './components/ChatView';
 import MemoryForm from './components/MemoryForm';
 import AnniversaryCountdown from './components/AnniversaryCountdown';
-import BackgroundMusicPlayer from './components/BackgroundMusicPlayer';
 import { Heart, Calendar as CalendarIcon, Clock, Home as HomeIcon, Plus, LogOut, Sparkles, Quote, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
@@ -355,8 +354,7 @@ export default function App() {
         {showForm && <MemoryForm onClose={() => setShowForm(false)} />}
       </AnimatePresence>
 
-      {/* Background Music Player */}
-      <BackgroundMusicPlayer user={user} />
+
     </div>
   );
 }

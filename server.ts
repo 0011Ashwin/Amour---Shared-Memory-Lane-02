@@ -2,17 +2,20 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { Storage } from "@google-cloud/storage";
+import { BlobServiceClient } from "@azure/storage-blob";
 import multer from "multer";
 
-let gcsStorage: Storage | null = null;
+let azureStorageClient: BlobServiceClient | null = null;
 
-function getGCSStorage(): Storage {
-  if (!gcsStorage) {
-    const projectId = process.env.GCP_PROJECT_ID || "build-with-ai-496714";
-    gcsStorage = new Storage({ projectId });
+function getAzureStorage(): BlobServiceClient {
+  if (!azureStorageClient) {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    if (!connectionString) {
+      throw new Error("AZURE_STORAGE_CONNECTION_STRING environment variable is required");
+    }
+    azureStorageClient = BlobServiceClient.fromConnectionString(connectionString);
   }
-  return gcsStorage;
+  return azureStorageClient;
 }
 
 const upload = multer({
@@ -37,77 +40,59 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API Route: Google Cloud Storage File Upload with automated Local Storage Fallback on IAM failures
+  // API Route: Azure Blob Storage File Upload with automated Local Storage Fallback
   app.post("/api/upload", upload.single("file"), async (req, res) => {
     const file = req.file;
     if (!file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const projectId = process.env.GCP_PROJECT_ID || "build-with-ai-496714";
-    const bucketName = process.env.GCS_BUCKET_NAME || "beba-001";
+    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || "bebaupload";
     const blobName = `${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9.]/g, "_")}`;
     
-    console.log(`[GCS-UPLOAD] Attempting GCS Upload for '${file.originalname}' into bucket '${bucketName}' (Project: ${projectId})...`);
+    console.log(`[AZURE-UPLOAD] Attempting Azure Storage Upload for '${file.originalname}' into container '${containerName}'...`);
 
     try {
-      const storageClient = getGCSStorage();
-      const bucket = storageClient.bucket(bucketName);
+      const storageClient = getAzureStorage();
+      const containerClient = storageClient.getContainerClient(containerName);
       
-      // Lazily check/create the bucket
+      // Lazily check/create the container
       try {
-        const [exists] = await bucket.exists();
+        const exists = await containerClient.exists();
         if (!exists) {
-          console.log(`[GCS-UPLOAD] Bucket '${bucketName}' not found. Attempting to create...`);
-          await storageClient.createBucket(bucketName, {
-            location: "asia-east1", // Near primary Cloud Run region
-            uniformBucketLevelAccess: true,
-          });
-          console.log(`[GCS-UPLOAD] Successfully created bucket '${bucketName}'.`);
+          console.log(`[AZURE-UPLOAD] Container '${containerName}' not found. Attempting to create with public blob-level access...`);
+          try {
+            await containerClient.create({ access: "blob" });
+          } catch (createErr: any) {
+            console.warn(`[AZURE-UPLOAD] Failed to create container with public 'blob' access: ${createErr.message}. Retrying without access level...`);
+            await containerClient.create();
+          }
+          console.log(`[AZURE-UPLOAD] Successfully created container '${containerName}'.`);
         }
-      } catch (bucketErr: any) {
-        console.warn(`[GCS-UPLOAD] Bucket existence/creation notice: ${bucketErr.message}. Proactive upload proceeding...`);
+      } catch (containerErr: any) {
+        console.warn(`[AZURE-UPLOAD] Container existence/creation notice: ${containerErr.message}. Proactive upload proceeding...`);
       }
 
-      const blob = bucket.file(blobName);
-      const blobStream = blob.createWriteStream({
-        resumable: false,
-        contentType: file.mimetype,
-        metadata: {
-          cacheControl: "public, max-age=31536000",
-        },
+      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+      
+      console.log(`[AZURE-UPLOAD] Uploading '${file.originalname}'...`);
+      await blockBlobClient.uploadData(file.buffer, {
+        blobHTTPHeaders: {
+          blobContentType: file.mimetype,
+          blobCacheControl: "public, max-age=31536000",
+        }
       });
 
-      await new Promise<void>((resolve, reject) => {
-        blobStream.on("error", (err) => {
-          console.error("[GCS-STREAM-ERROR]", err);
-          reject(err);
-        });
-
-        blobStream.on("finish", () => {
-          resolve();
-        });
-
-        blobStream.end(file.buffer);
-      });
-
-      // Try making the object public so anyone can view the memory card
-      try {
-        await blob.makePublic();
-      } catch (pubErr: any) {
-        console.warn(`[GCS-UPLOAD] Object makePublic notice: ${pubErr.message}`);
-      }
-
-      const publicUrl = `https://storage.googleapis.com/${bucketName}/${blobName}`;
-      console.log(`[GCS-UPLOAD] Upload complete! Public URL: ${publicUrl}`);
+      const publicUrl = blockBlobClient.url;
+      console.log(`[AZURE-UPLOAD] Upload complete! Public URL: ${publicUrl}`);
       
       res.json({
         status: "success",
         url: publicUrl,
-        storageType: "gcs",
+        storageType: "azure",
       });
     } catch (err: any) {
-      console.warn(`[GCS-UPLOAD-FAILED] GCS upload failed: "${err.message}". Falling back gracefully to Local Disk Storage...`);
+      console.warn(`[AZURE-UPLOAD-FAILED] Azure upload failed: "${err.message}". Falling back gracefully to Local Disk Storage...`);
       
       try {
         // Save to local filesystem fallback folder
@@ -123,13 +108,12 @@ async function startServer() {
           status: "success",
           url: fallbackUrl,
           storageType: "local",
-          serviceAccount: "ais-sandbox@ais-asia-east1-dea02eec22a0406.iam.gserviceaccount.com",
           errorDetails: err.message,
         });
       } catch (fallbackErr: any) {
         console.error("[LOCAL-FALLBACK-CRITICAL-FAILED]", fallbackErr);
         res.status(500).json({
-          error: "Failed to upload to Google Cloud Storage, and local disk fallback failed as well.",
+          error: "Failed to upload to Azure Storage, and local disk fallback failed as well.",
           details: `${err.message} (Fallback error: ${fallbackErr.message})`,
         });
       }

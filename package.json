@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.33.0",
     "@capacitor/android": "^8.3.4",
     "@capacitor/core": "^8.3.4",
     "@google-cloud/storage": "^7.19.0",
