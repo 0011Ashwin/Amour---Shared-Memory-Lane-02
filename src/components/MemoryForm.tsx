@@ -74,8 +74,19 @@ export default function MemoryForm({ onClose }: MemoryFormProps) {
           });
 
           if (!uploadResponse.ok) {
-            const errData = await uploadResponse.json();
-            throw new Error(errData.error || 'Failed to upload image to Google Cloud Storage.');
+            let errMsg = 'Failed to upload image.';
+            try {
+              const errData = await uploadResponse.json();
+              errMsg = errData.error || errData.details || errMsg;
+            } catch (jsonErr) {
+              try {
+                const textErr = await uploadResponse.text();
+                if (textErr && textErr.length < 200) {
+                  errMsg = textErr;
+                }
+              } catch (textErr) {}
+            }
+            throw new Error(errMsg);
           }
 
           const uploadData = await uploadResponse.json();

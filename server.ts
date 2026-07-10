@@ -29,10 +29,28 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
-  // Setup local uploads fallback directory inside project root
-  const fallbackDir = path.join(process.cwd(), "uploads_fallback");
-  if (!fs.existsSync(fallbackDir)) {
-    fs.mkdirSync(fallbackDir, { recursive: true });
+  // Setup local uploads fallback directory in a writable directory
+  // Try /tmp/uploads_fallback first for Cloud Run containers, then fallback to process.cwd()
+  let fallbackDir = "/tmp/uploads_fallback";
+  try {
+    if (!fs.existsSync(fallbackDir)) {
+      fs.mkdirSync(fallbackDir, { recursive: true });
+    }
+    // Test write permission
+    const testFile = path.join(fallbackDir, ".write-test");
+    fs.writeFileSync(testFile, "test");
+    fs.unlinkSync(testFile);
+    console.log(`[SERVER] Fallback storage configured at writable path: ${fallbackDir}`);
+  } catch (e) {
+    fallbackDir = path.join(process.cwd(), "uploads_fallback");
+    try {
+      if (!fs.existsSync(fallbackDir)) {
+        fs.mkdirSync(fallbackDir, { recursive: true });
+      }
+      console.log(`[SERVER] /tmp not writable. Fallback storage configured at project path: ${fallbackDir}`);
+    } catch (err2: any) {
+      console.error("[SERVER] CRITICAL: Both /tmp and process.cwd() fallback directories are not writable!", err2);
+    }
   }
 
   // Serve the local dynamic uploads statically
